@@ -75,6 +75,38 @@ export default async function Home() {
   const rawPlayers = (playersRes.data || []) as Player[];
   const matches = (matchesRes.data || []) as Match[];
 
+  // If matches are missing kickoff times, try to fetch them from the WC2026 API
+  try {
+    const needKickoff = matches.some(m => !m.kickoff_utc && ['NS','1H','2H','HT'].includes(m.status || ''));
+    if (needKickoff) {
+      const STATS_KEY = process.env.STATS_API_KEY;
+      const apiBase = 'https://api.wc2026api.com';
+      const headers: Record<string,string> = {};
+      if (STATS_KEY) headers['Authorization'] = `Bearer ${STATS_KEY}`;
+
+      const resp = await fetch(`${apiBase}/matches`, { headers });
+      if (resp.ok) {
+        const payload = await resp.json();
+        const arr = Array.isArray(payload) ? payload : (payload.data || payload.matches || payload.response || []);
+        const kickoffMap: Record<number,string> = {};
+        for (const am of arr) {
+          if (am && typeof am.id !== 'undefined') {
+            kickoffMap[Number(am.id)] = am.kickoff_utc || am.kickoff || '';
+          }
+        }
+
+        for (const m of matches) {
+          if (!m.kickoff_utc && kickoffMap[m.api_match_id]) {
+            m.kickoff_utc = kickoffMap[m.api_match_id];
+          }
+        }
+      }
+    }
+  } catch (err) {
+    // don't block page render on upstream errors
+    console.error('Kickoff fetch failed', err);
+  }
+
   // 1. Process Leaderboard Data
   const leaderboard = rawPlayers.map(player => {
     let totalPoints = 0;
