@@ -1,4 +1,4 @@
-import { supabase } from '@/lib/supabase'
+import { supabaseAdmin } from '@/lib/supabase-server'
 import { joinGame, removePlayer } from './actions'
 import { Team } from '@/lib/constants'
 
@@ -66,8 +66,8 @@ export default async function Home() {
   const isDraftOpen = process.env.NEXT_PUBLIC_DRAFT_OPEN === 'true'
 
   const [playersRes, matchesRes] = await Promise.all([
-    supabase.from('players').select('*').order('created_at', { ascending: true }),
-    supabase.from('matches').select('*')
+    supabaseAdmin.from('players').select('*').order('created_at', { ascending: true }),
+    supabaseAdmin.from('matches').select('*')
   ])
   
   const rawPlayers = (playersRes.data || []) as Player[];
