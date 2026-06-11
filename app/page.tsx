@@ -17,6 +17,8 @@ interface Match {
   away_goals: number
   status: string
   stage: string
+  match_number?: number
+  kickoff_utc?: string
 }
 
 // --- SCORING & ELIMINATION ENGINE ---
