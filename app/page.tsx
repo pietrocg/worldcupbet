@@ -114,6 +114,17 @@ export default async function Home() {
     return 'Unknown';
   };
 
+  const formatKickoff = (kickoff?: string, stage?: string) => {
+    if (!kickoff) return stage ? stage.replace('Group Stage - ', 'Game ') : '';
+    try {
+      const d = new Date(kickoff);
+      if (Number.isNaN(d.getTime())) return stage ? stage.replace('Group Stage - ', 'Game ') : '';
+      return d.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
+    } catch {
+      return stage ? stage.replace('Group Stage - ', 'Game ') : '';
+    }
+  }
+
   // 2. Process Matches (Watchlist & Recent)
   // Prefer sorting by kickoff time when available; fall back to match_number or api id.
   const parseKickoff = (m: Match) => {
@@ -285,8 +296,8 @@ export default async function Home() {
                           <div className="font-bold">{match.home_team}</div>
                           <div className="text-xs text-gray-500">{getOwner(match.home_team)}</div>
                         </div>
-                        <div className="px-4 text-xs font-bold text-gray-500 uppercase text-center min-w-[80px]">
-                          {match.stage.replace('Group Stage - ', 'Game ')}
+                        <div className="px-4 text-xs font-bold text-gray-500 uppercase text-center min-w-[110px]">
+                          {formatKickoff(match.kickoff_utc, match.stage)}
                         </div>
                         <div className="flex-1 text-left border-l border-gray-800 pl-4">
                           <div className="font-bold">{match.away_team}</div>
