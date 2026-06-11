@@ -51,9 +51,84 @@ export async function GET(request: Request) {
     }
 
     // 3. Helper to match API name ("France") with our DB name ("🇫🇷 France")
-    const getFullTeamName = (apiName: string) => {
-      const match = TEAMS.find(t => t.name.includes(apiName));
-      return match ? match.name : apiName; 
+    // Normalize string: remove diacritics, strip non-alphanumerics, lowercase
+    const normalize = (s?: string) => {
+      if (!s) return '';
+      // Remove combining diacritics (NFD form) then strip non-alphanumeric
+      const noDiacritics = s.normalize ? s.normalize('NFD').replace(/\p{M}/gu, '') : s;
+      return noDiacritics.replace(/[^a-zA-Z0-9 ]/g, '').trim().toLowerCase();
+    };
+
+    // Manual aliases for API name variants that don't naturally match our TEAMS names
+    const NAME_ALIASES: Record<string, string> = {
+      'korea republic': 'south korea',
+      'korea': 'south korea',
+      'republic of korea': 'south korea',
+      'bosnia-herzegovina': 'bosnia and herzegovina',
+      'bosnia and herzegovina': 'bosnia and herzegovina',
+      'bosnia': 'bosnia and herzegovina',
+      'usa': 'united states',
+      'united states of america': 'united states',
+      'u.s.a.': 'united states',
+      'cote divoire': 'ivory coast',
+      "cote divoire": 'ivory coast',
+      "côte d'ivoire": 'ivory coast',
+      'ivory coast': 'ivory coast',
+      'cabo verde': 'cape verde',
+      'cape verde': 'cape verde',
+      'congo dr': 'dr congo',
+      'dr congo': 'dr congo',
+      'democratic republic of the congo': 'dr congo',
+      'iran islamic republic': 'iran',
+      'iran, islamic republic of': 'iran',
+      'ir iran': 'iran',
+      'turkey': 'turkiye',
+      'türkiye': 'turkiye',
+      'curacao': 'curacao',
+      'czech republic': 'czechia'
+    };
+
+    // Build a normalized alias map so keys like "Bosnia-Herzegovina" (hyphenated)
+    // map correctly after normalization.
+    const NORMALIZED_ALIASES: Record<string, string> = {};
+    for (const k of Object.keys(NAME_ALIASES)) {
+      NORMALIZED_ALIASES[normalize(k)] = NAME_ALIASES[k];
+    }
+
+    // Try to match the API team name to our `TEAMS` entries (which include emoji flags).
+    // Use aliases and code fallbacks to cover common variants.
+    const getFullTeamName = (apiName: string, apiCode?: string) => {
+      const targetRaw = (apiName || '').trim();
+      if (!targetRaw) return apiName;
+      const target = normalize(targetRaw);
+
+      // Alias lookup (using normalized alias keys)
+      if (NORMALIZED_ALIASES[target]) {
+        const alias = NORMALIZED_ALIASES[target];
+        for (const t of TEAMS) {
+          const cand = normalize(t.name);
+          if (cand.includes(alias)) return t.name;
+        }
+      }
+
+      // First pass: exact or inclusion match on normalized names
+      for (const t of TEAMS) {
+        const cand = normalize(t.name);
+        if (cand === target || cand.includes(target) || target.includes(cand)) {
+          return t.name;
+        }
+      }
+
+      // Fallback: try matching by code if provided (common codes like USA, KOR, MEX)
+      if (apiCode) {
+        const code = apiCode.trim().toLowerCase();
+        for (const t of TEAMS) {
+          const cand = normalize(t.name);
+          if (cand.includes(code)) return t.name;
+        }
+      }
+
+      return apiName;
     };
 
     // 4. Format the data for Supabase
@@ -79,8 +154,8 @@ export async function GET(request: Request) {
 
     const matchesToUpsert = allMatches.map((m: any) => ({
       api_match_id: m.id,
-      home_team: getFullTeamName(m.home_team || m.home_team_name || ''),
-      away_team: getFullTeamName(m.away_team || m.away_team_name || ''),
+      home_team: getFullTeamName(m.home_team || m.home_team_name || '', m.home_team_code || m.home_team_iso2 || m.home_code),
+      away_team: getFullTeamName(m.away_team || m.away_team_name || '', m.away_team_code || m.away_team_iso2 || m.away_code),
       home_goals: (m.home_score ?? m.home_score_current) ?? 0,
       away_goals: (m.away_score ?? m.away_score_current) ?? 0,
       status: mapPhaseToStatus(m.phase, m.status),
