@@ -26,10 +26,28 @@ export async function GET(request: Request) {
 
     // GET /matches — returns all tournament matches; support optional filters via query
     const res = await fetch(`${apiBase}/matches`, { headers });
-    const allMatches = await res.json();
+    const payload = await res.json();
+
+    if (!res.ok) {
+      console.error('Upstream error:', payload);
+      return NextResponse.json({ success: false, message: 'Upstream WC2026 API error', details: payload }, { status: 502 });
+    }
+
+    // Normalize payload shapes (API may return an array or wrap it in { data: [...] } / { matches: [...] })
+    let allMatches: any[] = [];
+    if (Array.isArray(payload)) {
+      allMatches = payload;
+    } else if (payload && Array.isArray(payload.data)) {
+      allMatches = payload.data;
+    } else if (payload && Array.isArray(payload.matches)) {
+      allMatches = payload.matches;
+    } else if (payload && Array.isArray(payload.response)) {
+      allMatches = payload.response;
+    }
 
     if (!allMatches || allMatches.length === 0) {
-      return NextResponse.json({ success: true, message: 'No 2026 matches available from WC2026 API yet.' });
+      console.error('Unexpected or empty matches payload from WC2026 API:', payload);
+      return NextResponse.json({ success: true, message: 'No 2026 matches available from WC2026 API yet.', payloadShape: Object.keys(payload || {}) });
     }
 
     // 3. Helper to match API name ("France") with our DB name ("🇫🇷 France")
