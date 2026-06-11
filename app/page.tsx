@@ -89,9 +89,27 @@ export default async function Home() {
   }).sort((a, b) => b.totalPoints - a.totalPoints || b.totalGoals - a.totalGoals);
 
   // Helper to find who owns a team
+  const normalize = (s?: string) => {
+    if (!s) return '';
+    return s.replace(/[^a-zA-Z0-9 ]/g, '').trim().toLowerCase();
+  };
+
+  // Helper to find who owns a team. Handles emoji in stored team names
+  // and assigned_teams being either objects or strings.
   const getOwner = (teamName: string) => {
-    const owner = rawPlayers.find(p => p.assigned_teams?.some(t => t.name === teamName));
-    return owner ? owner.name : 'Unknown';
+    const target = normalize(teamName);
+    for (const p of rawPlayers) {
+      const assigned = p.assigned_teams || [];
+      for (const t of assigned) {
+        const candidate = typeof t === 'string' ? t : (t?.name || '');
+        const candNorm = normalize(candidate);
+        if (!candNorm) continue;
+        if (candNorm === target || candNorm.includes(target) || target.includes(candNorm)) {
+          return p.name;
+        }
+      }
+    }
+    return 'Unknown';
   };
 
   // 2. Process Matches (Watchlist & Recent)
