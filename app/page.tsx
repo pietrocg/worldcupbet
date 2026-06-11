@@ -186,13 +186,13 @@ export default async function Home() {
 
   // 3. Prize Pool Math
   const totalPot = rawPlayers.length * 10;
-  const fixedPrizes = 30; // 3rd, Golden Boot, Wooden Spoon = £10 each
+  const fixedPrizes = 45; // 3rd, Golden Boot, Wooden Spoon = £15 each
   const remainingPot = totalPot > fixedPrizes ? totalPot - fixedPrizes : 0;
   const prizes = {
     first: (remainingPot * 0.66).toFixed(2),
     second: (remainingPot * 0.34).toFixed(2),
-    third: "10.00",
-    special: "10.00"
+    third: "15.00",
+    special: "15.00"
   };
 
   const goldenBootWinner = [...leaderboard].sort((a, b) => b.totalGoals - a.totalGoals)[0];
