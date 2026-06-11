@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { supabaseAdmin } from '@/lib/supabase-server';
 import { TEAMS } from '@/lib/constants';
 
 export async function GET(request: Request) {
@@ -54,7 +54,7 @@ export async function GET(request: Request) {
     }));
 
     // 5. Upsert into Supabase (If the match ID exists, update it. If not, insert it)
-    const { error } = await supabase
+    const { error } = await supabaseAdmin
       .from('matches')
       .upsert(matchesToUpsert, { onConflict: 'api_match_id' });
 
