@@ -71,7 +71,6 @@ export async function GET(request: Request) {
       'united states of america': 'united states',
       'u.s.a.': 'united states',
       'cote divoire': 'ivory coast',
-      "cote divoire": 'ivory coast',
       "côte d'ivoire": 'ivory coast',
       'ivory coast': 'ivory coast',
       'cabo verde': 'cape verde',
