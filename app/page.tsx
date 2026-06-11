@@ -115,15 +115,29 @@ export default async function Home() {
   };
 
   // 2. Process Matches (Watchlist & Recent)
-  // Sort matches by `match_number` when available, falling back to `api_match_id`.
+  // Prefer sorting by kickoff time when available; fall back to match_number or api id.
+  const parseKickoff = (m: Match) => {
+    if (m.kickoff_utc) {
+      const t = Date.parse(m.kickoff_utc);
+      if (!Number.isNaN(t)) return t;
+    }
+    return null as number | null;
+  };
+
   const matchesSorted = [...matches].sort((a, b) => {
-    const aKey = (a.match_number ?? a.api_match_id) || 0;
-    const bKey = (b.match_number ?? b.api_match_id) || 0;
-    return aKey - bKey;
+    const aTime = parseKickoff(a) ?? (a.match_number ?? a.api_match_id ?? 0);
+    const bTime = parseKickoff(b) ?? (b.match_number ?? b.api_match_id ?? 0);
+    return (aTime as number) - (bTime as number);
   });
 
-  const activeMatches = matchesSorted.filter(m => ['NS', '1H', '2H', 'HT'].includes(m.status)).slice(0, 4);
-  const recentMatches = matchesSorted.filter(m => ['FT', 'AET', 'PEN'].includes(m.status))
+  const now = Date.now();
+  const upcomingStatuses = ['NS', '1H', '2H', 'HT'];
+  const activeMatches = matchesSorted
+    .filter(m => upcomingStatuses.includes(m.status) && ((parseKickoff(m) ?? Infinity) >= now))
+    .slice(0, 4);
+
+  const recentMatches = matchesSorted
+    .filter(m => ['FT', 'AET', 'PEN'].includes(m.status))
     .slice(-4)
     .reverse();
 
