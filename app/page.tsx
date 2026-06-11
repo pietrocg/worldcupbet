@@ -113,10 +113,17 @@ export default async function Home() {
   };
 
   // 2. Process Matches (Watchlist & Recent)
-  const activeMatches = matches.filter(m => ['NS', '1H', '2H', 'HT'].includes(m.status)).slice(0, 4);
-  const recentMatches = matches.filter(m => ['FT', 'AET', 'PEN'].includes(m.status))
-    .sort((a, b) => b.api_match_id - a.api_match_id) // Sort descending
-    .slice(0, 4);
+  // Sort matches by `match_number` when available, falling back to `api_match_id`.
+  const matchesSorted = [...matches].sort((a, b) => {
+    const aKey = (a.match_number ?? a.api_match_id) || 0;
+    const bKey = (b.match_number ?? b.api_match_id) || 0;
+    return aKey - bKey;
+  });
+
+  const activeMatches = matchesSorted.filter(m => ['NS', '1H', '2H', 'HT'].includes(m.status)).slice(0, 4);
+  const recentMatches = matchesSorted.filter(m => ['FT', 'AET', 'PEN'].includes(m.status))
+    .slice(-4)
+    .reverse();
 
   // 3. Prize Pool Math
   const totalPot = rawPlayers.length * 10;
