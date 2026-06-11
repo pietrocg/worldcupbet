@@ -153,8 +153,6 @@ export async function GET(request: Request) {
 
     const matchesToUpsert = allMatches.map((m: any) => ({
       api_match_id: m.id,
-      match_number: m.match_number ?? m.match_num ?? null,
-      kickoff_utc: m.kickoff_utc ?? m.kickoff ?? m.kickoff_time ?? null,
       home_team: getFullTeamName(m.home_team || m.home_team_name || '', m.home_team_code || m.home_team_iso2 || m.home_code),
       away_team: getFullTeamName(m.away_team || m.away_team_name || '', m.away_team_code || m.away_team_iso2 || m.away_code),
       home_goals: (m.home_score ?? m.home_score_current) ?? 0,
