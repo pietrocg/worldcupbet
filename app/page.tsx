@@ -67,13 +67,22 @@ function calculateTeamStats(teamName: string, matches: Match[]) {
 export default async function Home() {
   const isDraftOpen = process.env.NEXT_PUBLIC_DRAFT_OPEN === 'true'
 
-  const [playersRes, matchesRes] = await Promise.all([
-    supabaseAdmin.from('players').select('*').order('created_at', { ascending: true }),
-    supabaseAdmin.from('matches').select('*')
-  ])
-  
-  const rawPlayers = (playersRes.data || []) as Player[];
-  const matches = (matchesRes.data || []) as Match[];
+  let rawPlayers: Player[] = [];
+  let matches: Match[] = [];
+
+  // Only attempt Supabase queries when env vars are present. During
+  // build/prerender these may be missing (causing a runtime error), so
+  // fall back to empty arrays to allow the page to compile.
+  if (process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    const [playersRes, matchesRes] = await Promise.all([
+      supabaseAdmin.from('players').select('*').order('created_at', { ascending: true }),
+      supabaseAdmin.from('matches').select('*')
+    ]);
+    rawPlayers = (playersRes.data || []) as Player[];
+    matches = (matchesRes.data || []) as Match[];
+  } else {
+    console.warn('Skipping Supabase fetch: NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY not set');
+  }
 
   // If matches are missing kickoff times, try to fetch them from the WC2026 API
   try {
@@ -108,11 +117,11 @@ export default async function Home() {
   }
 
   // 1. Process Leaderboard Data
-  const leaderboard = rawPlayers.map(player => {
+  const leaderboard = rawPlayers.map((player: Player) => {
     let totalPoints = 0;
     let totalGoals = 0;
 
-    const teamStats = player.assigned_teams?.map(team => {
+    const teamStats = player.assigned_teams?.map((team: any) => {
       const teamName = typeof team === 'string' ? team : (team?.name || '');
       const stats = calculateTeamStats(teamName, matches);
       totalPoints += stats.points;
@@ -131,9 +140,9 @@ export default async function Home() {
   }).sort((a, b) => b.totalPoints - a.totalPoints || b.totalGoals - a.totalGoals);
 
   // 1.a Collect eliminated teams for a dedicated UI panel
-  const eliminatedTeams = leaderboard.flatMap(p => (p.teamStats || [])
-    .filter(t => t.isEliminated)
-    .map(t => ({ ...t, owner: p.name }))
+  const eliminatedTeams = leaderboard.flatMap((p: any) => (p.teamStats || [])
+    .filter((t: any) => t.isEliminated)
+    .map((t: any) => ({ ...t, owner: p.name }))
   );
 
   // Helper to find who owns a team
@@ -252,8 +261,8 @@ export default async function Home() {
             </form>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {leaderboard.map((player) => {
-                const totalScore = player.assigned_teams?.reduce((acc, team) => {
+              {leaderboard.map((player: any) => {
+                const totalScore = player.assigned_teams?.reduce((acc: number, team: any) => {
                   const teamName = typeof team === 'string' ? team : (team?.name || '');
                   const teamObj = typeof team === 'string'
                     ? (TEAMS.find(t => t.name.replace(/[^a-zA-Z0-9 ]/g, '').trim().toLowerCase() === teamName.replace(/[^a-zA-Z0-9 ]/g, '').trim().toLowerCase()) || { name: teamName, fifaRank: 0, powerScore: 0 })
@@ -284,7 +293,7 @@ export default async function Home() {
                     </div>
                     
                     <ul className="space-y-2">
-                      {player.assigned_teams?.map((team) => (
+                      {player.assigned_teams?.map((team: any) => (
                         <li key={team.name} className="flex justify-between items-center text-sm">
                           <span>{team.name}</span>
                           <span className="text-gray-500 text-xs">Rank: {team.fifaRank}</span>
@@ -304,14 +313,18 @@ export default async function Home() {
 
         {/* --- MODE 2: LIVE TOURNAMENT --- */}
         {!isDraftOpen && (
-                    <ul className="space-y-2">
-                      {player.assigned_teams?.map((team) => (
-                        <li key={team.name} className="flex justify-between items-center text-sm">
-                          <span>{team.name}</span>
-                          <span className="text-gray-500 text-xs">Rank: {team.fifaRank}</span>
-                        </li>
-                      ))}
-                    </ul>
+          <div className="space-y-8">
+            {/* TOP ROW: RECENT & WATCHLIST */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* RECENT RESULTS */}
+              <div className="bg-gray-900 border border-gray-800 rounded-xl p-6 shadow-lg">
+                <h2 className="text-xl font-bold mb-4 text-green-400 flex items-center gap-2">🏁 Recent Results</h2>
+                {recentMatches.length === 0 ? (
+                  <p className="text-gray-500 text-sm">No matches finished yet.</p>
+                ) : (
+                  <div className="space-y-3">
+                    {recentMatches.map((match: Match) => (
+                      <div key={match.api_match_id} className="bg-gray-950 p-3 rounded border border-gray-800 flex justify-between items-center text-sm">
                         <div className="flex-1 text-right border-r border-gray-800 pr-4">
                           <div className="font-bold">{match.home_team}</div>
                           <div className="text-xs text-gray-500">{getOwner(match.home_team)}</div>
@@ -336,7 +349,33 @@ export default async function Home() {
                   <p className="text-gray-500 text-sm">No upcoming matches scheduled.</p>
                 ) : (
                   <div className="space-y-3">
-                    {activeMatches.map(match => (
+                    {activeMatches.map((match: Match) => (
+                      <div key={match.api_match_id} className="bg-gray-950 p-3 rounded border border-gray-800 flex justify-between items-center text-sm">
+                        <div className="flex-1 text-right border-r border-gray-800 pr-4">
+                          <div className="font-bold">{match.home_team}</div>
+                          <div className="text-xs text-gray-500">{getOwner(match.home_team)}</div>
+                        </div>
+                        <div className="px-4 text-xs font-bold text-gray-500 uppercase text-center min-w-[110px]">
+                          {formatKickoff(match.kickoff_utc, match.stage)}
+                        </div>
+                        <div className="flex-1 text-left border-l border-gray-800 pl-4">
+                          <div className="font-bold">{match.away_team}</div>
+                          <div className="text-xs text-gray-500">{getOwner(match.away_team)}</div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* WATCHLIST */}
+              <div className="bg-gray-900 border border-gray-800 rounded-xl p-6 shadow-lg">
+                <h2 className="text-xl font-bold mb-4 text-blue-400 flex items-center gap-2">📺 Next Up / Live</h2>
+                {activeMatches.length === 0 ? (
+                  <p className="text-gray-500 text-sm">No upcoming matches scheduled.</p>
+                ) : (
+                  <div className="space-y-3">
+                    {activeMatches.map((match: Match) => (
                       <div key={match.api_match_id} className="bg-gray-950 p-3 rounded border border-gray-800 flex justify-between items-center text-sm">
                         <div className="flex-1 text-right border-r border-gray-800 pr-4">
                           <div className="font-bold">{match.home_team}</div>
@@ -394,7 +433,7 @@ export default async function Home() {
             <div>
               <h2 className="text-xl font-bold mb-4 flex items-center gap-2">📊 Live Standings</h2>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {leaderboard.map((player, index) => (
+                {leaderboard.map((player: any, index: number) => (
                   <div key={player.id} className={`bg-gray-900 border rounded-xl p-5 transition-all shadow-lg ${index === 0 ? 'border-yellow-500 shadow-[0_0_15px_rgba(234,179,8,0.2)]' : index === 1 ? 'border-gray-400' : index === 2 ? 'border-orange-700' : 'border-gray-800'}`}>
                     <div className="flex justify-between items-center mb-4 border-b border-gray-800 pb-2">
                       <h2 className="text-xl font-bold flex items-center gap-2">
@@ -407,7 +446,7 @@ export default async function Home() {
                     </div>
                     
                     <ul className="space-y-2">
-                      {player.teamStats.map((team) => (
+                      {player.teamStats.map((team: any) => (
                         <li key={team.name} className={`flex justify-between items-center text-sm ${team.isEliminated ? 'opacity-40' : ''}`}>
                           <span className={team.isEliminated ? 'line-through' : ''}>
                             {team.name} {team.isEliminated && '💀'}
@@ -427,7 +466,7 @@ export default async function Home() {
                 <div className="col-span-full mt-6 bg-gray-900 border border-gray-800 rounded-xl p-4">
                   <h3 className="text-sm font-bold text-red-400 mb-3">💀 Eliminated Teams ({eliminatedTeams.length})</h3>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
-                    {eliminatedTeams.map((t, i) => (
+                    {eliminatedTeams.map((t: any, i: number) => (
                       <div key={`${t.name}-${i}`} className="flex justify-between items-center">
                         <div className="line-through opacity-70">{t.name}</div>
                         <div className="text-gray-400 text-xs">{t.owner}</div>
