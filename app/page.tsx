@@ -342,31 +342,7 @@ export default async function Home() {
                 )}
               </div>
 
-              {/* WATCHLIST */}
-              <div className="bg-gray-900 border border-gray-800 rounded-xl p-6 shadow-lg">
-                <h2 className="text-xl font-bold mb-4 text-blue-400 flex items-center gap-2">📺 Next Up / Live</h2>
-                {activeMatches.length === 0 ? (
-                  <p className="text-gray-500 text-sm">No upcoming matches scheduled.</p>
-                ) : (
-                  <div className="space-y-3">
-                    {activeMatches.map((match: Match) => (
-                      <div key={match.api_match_id} className="bg-gray-950 p-3 rounded border border-gray-800 flex justify-between items-center text-sm">
-                        <div className="flex-1 text-right border-r border-gray-800 pr-4">
-                          <div className="font-bold">{match.home_team}</div>
-                          <div className="text-xs text-gray-500">{getOwner(match.home_team)}</div>
-                        </div>
-                        <div className="px-4 text-xs font-bold text-gray-500 uppercase text-center min-w-[110px]">
-                          {formatKickoff(match.kickoff_utc, match.stage)}
-                        </div>
-                        <div className="flex-1 text-left border-l border-gray-800 pl-4">
-                          <div className="font-bold">{match.away_team}</div>
-                          <div className="text-xs text-gray-500">{getOwner(match.away_team)}</div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
+              
 
               {/* WATCHLIST */}
               <div className="bg-gray-900 border border-gray-800 rounded-xl p-6 shadow-lg">
