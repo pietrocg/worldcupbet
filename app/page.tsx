@@ -1,6 +1,6 @@
 import { supabaseAdmin } from '@/lib/supabase-server'
 import { joinGame, removePlayer } from './actions'
-import { Team } from '@/lib/constants'
+import { Team, TEAMS } from '@/lib/constants'
 
 // --- TYPES ---
 interface Player {
@@ -113,14 +113,28 @@ export default async function Home() {
     let totalGoals = 0;
 
     const teamStats = player.assigned_teams?.map(team => {
-      const stats = calculateTeamStats(team.name, matches);
+      const teamName = typeof team === 'string' ? team : (team?.name || '');
+      const stats = calculateTeamStats(teamName, matches);
       totalPoints += stats.points;
       totalGoals += stats.goals;
-      return { ...team, ...stats };
+
+      // If stored as a string, look up full team info from TEAMS
+      let teamObj: Team | { name: string; fifaRank: number; powerScore: number } =
+        typeof team === 'string'
+          ? (TEAMS.find(t => t.name.replace(/[^a-zA-Z0-9 ]/g, '').trim().toLowerCase() === teamName.replace(/[^a-zA-Z0-9 ]/g, '').trim().toLowerCase()) || { name: teamName, fifaRank: 0, powerScore: 0 })
+          : team;
+
+      return { ...teamObj, ...stats };
     }) || [];
 
     return { ...player, totalPoints, totalGoals, teamStats };
   }).sort((a, b) => b.totalPoints - a.totalPoints || b.totalGoals - a.totalGoals);
+
+  // 1.a Collect eliminated teams for a dedicated UI panel
+  const eliminatedTeams = leaderboard.flatMap(p => (p.teamStats || [])
+    .filter(t => t.isEliminated)
+    .map(t => ({ ...t, owner: p.name }))
+  );
 
   // Helper to find who owns a team
   const normalize = (s?: string) => {
@@ -239,7 +253,13 @@ export default async function Home() {
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {leaderboard.map((player) => {
-                const totalScore = player.assigned_teams?.reduce((acc, team) => acc + team.powerScore, 0) || 0;
+                const totalScore = player.assigned_teams?.reduce((acc, team) => {
+                  const teamName = typeof team === 'string' ? team : (team?.name || '');
+                  const teamObj = typeof team === 'string'
+                    ? (TEAMS.find(t => t.name.replace(/[^a-zA-Z0-9 ]/g, '').trim().toLowerCase() === teamName.replace(/[^a-zA-Z0-9 ]/g, '').trim().toLowerCase()) || { name: teamName, fifaRank: 0, powerScore: 0 })
+                    : team;
+                  return acc + (teamObj.powerScore || 0);
+                }, 0) || 0;
                 
                 return (
                   <div key={player.id} className="relative bg-gray-900 border border-gray-800 rounded-xl p-5 hover:border-gray-700 transition shadow-lg">
@@ -284,20 +304,14 @@ export default async function Home() {
 
         {/* --- MODE 2: LIVE TOURNAMENT --- */}
         {!isDraftOpen && (
-          <div className="space-y-8">
-            
-            {/* TOP ROW: RECENT & WATCHLIST */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              
-              {/* RECENT RESULTS */}
-              <div className="bg-gray-900 border border-gray-800 rounded-xl p-6 shadow-lg">
-                <h2 className="text-xl font-bold mb-4 text-green-400 flex items-center gap-2">🏁 Recent Results</h2>
-                {recentMatches.length === 0 ? (
-                  <p className="text-gray-500 text-sm">No matches finished yet.</p>
-                ) : (
-                  <div className="space-y-3">
-                    {recentMatches.map(match => (
-                      <div key={match.api_match_id} className="bg-gray-950 p-3 rounded border border-gray-800 flex justify-between items-center text-sm">
+                    <ul className="space-y-2">
+                      {player.assigned_teams?.map((team) => (
+                        <li key={team.name} className="flex justify-between items-center text-sm">
+                          <span>{team.name}</span>
+                          <span className="text-gray-500 text-xs">Rank: {team.fifaRank}</span>
+                        </li>
+                      ))}
+                    </ul>
                         <div className="flex-1 text-right border-r border-gray-800 pr-4">
                           <div className="font-bold">{match.home_team}</div>
                           <div className="text-xs text-gray-500">{getOwner(match.home_team)}</div>
@@ -408,6 +422,20 @@ export default async function Home() {
                   </div>
                 ))}
               </div>
+              {/* ELIMINATED TEAMS PANEL */}
+              {eliminatedTeams.length > 0 && (
+                <div className="col-span-full mt-6 bg-gray-900 border border-gray-800 rounded-xl p-4">
+                  <h3 className="text-sm font-bold text-red-400 mb-3">💀 Eliminated Teams ({eliminatedTeams.length})</h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
+                    {eliminatedTeams.map((t, i) => (
+                      <div key={`${t.name}-${i}`} className="flex justify-between items-center">
+                        <div className="line-through opacity-70">{t.name}</div>
+                        <div className="text-gray-400 text-xs">{t.owner}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
             
           </div>
